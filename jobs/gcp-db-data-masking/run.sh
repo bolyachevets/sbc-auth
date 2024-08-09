@@ -24,6 +24,8 @@ echo "GRANT USAGE ON SCHEMA public TO auth;" >> readonly.sql
 echo "GRANT SELECT ON ALL TABLES IN SCHEMA public to auth;" >> readonly.sql
 echo "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO auth;" >> readonly.sql
 echo "GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO auth;" >> readonly.sql
+echo "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO postgres;" >> readonly.sql
+
 
 echo "applying readonly user changes ..."
 gsutil cp readonly.sql "gs://${DB_NAME}-dump-${ENV}/"
