@@ -58,7 +58,9 @@ jobs:
       PAY_API_VERSION: "/api/v1"
 
     runs-on: ubuntu-20.04
-
+    strategy:
+      matrix:
+        python-version: [3.12]
     services:
       postgres:
         image: postgres:12
