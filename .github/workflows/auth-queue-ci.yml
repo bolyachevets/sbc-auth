@@ -19,9 +19,6 @@ defaults:
 jobs:
   setup-job:
     runs-on: ubuntu-20.04
-
-    if: github.repository == 'bcgov/sbc-auth'
-
     steps:
       - uses: actions/checkout@v4
       - run: "true"
@@ -78,6 +75,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          echo ${{ matrix.python-version }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
