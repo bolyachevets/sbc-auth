@@ -23,7 +23,6 @@ from account_mailer.email_processors import generate_template
 from account_mailer.enums import SubjectType, TemplateType
 from account_mailer.services import minio_service
 
-
 logger = StructuredLogging.get_logger()
 
 

@@ -21,7 +21,6 @@ from structured_logging import StructuredLogging
 
 from account_mailer.email_processors import generate_template
 
-
 logger = StructuredLogging.get_logger()
 
 

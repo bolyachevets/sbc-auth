@@ -20,7 +20,6 @@ from os.path import basename, splitext
 
 from setuptools import find_packages, setup
 
-
 _version_re = re.compile(r'__version__\s+=\s+(.*)')  # pylint: disable=invalid-name
 
 with open('src/account_mailer/version.py', 'rb') as f:
