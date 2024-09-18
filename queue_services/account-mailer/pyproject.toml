@@ -42,6 +42,17 @@ auth-api = { git = "https://github.com/bcgov/sbc-auth.git", rev = "feature-gcp-m
 simple-cloudevent = { git = "https://github.com/daxiom/simple-cloudevent.py.git" }
 build-deps = { git = "https://github.com/bcgov/sbc-auth.git", rev = "feature-gcp-migration", subdirectory = "build-deps" }
 
+[tool.poetry.group.test.dependencies]
+psycopg2 = "^2.9.9"
+pytest = "^8.3.2"
+pytest-cov = "^5.0.0"
+pytest-mock = "^3.14.0"
+requests-mock = "^1.12.1"
+faker = "^25.9.2"
+freezegun = "^1.5.1"
+pytest-asyncio = "^0.23.8"
+lovely-pytest-docker = "^0.3.1"
+
 [tool.poetry.group.dev.dependencies]
 pylint = "^3.2.6"
 bandit = "^1.7.9"
