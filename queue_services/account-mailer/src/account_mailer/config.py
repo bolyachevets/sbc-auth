@@ -27,30 +27,30 @@ from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv())
 
 CONFIGURATION = {
-    'development': 'account_mailer.config.DevConfig',
-    'testing': 'account_mailer.config.TestConfig',
-    'production': 'account_mailer.config.ProdConfig',
-    'default': 'account_mailer.config.ProdConfig'
+    "development": "account_mailer.config.DevConfig",
+    "testing": "account_mailer.config.TestConfig",
+    "production": "account_mailer.config.ProdConfig",
+    "default": "account_mailer.config.ProdConfig",
 }
 
 
-def get_named_config(config_name: str = 'production'):
+def get_named_config(config_name: str = "production"):
     """Return the configuration object based on the name.
 
     :raise: KeyError: if an unknown configuration is requested
     """
-    if config_name in ['production', 'staging', 'default']:
+    if config_name in ["production", "staging", "default"]:
         app_config = ProdConfig()
-    elif config_name == 'testing':
+    elif config_name == "testing":
         app_config = TestConfig()
-    elif config_name == 'development':
+    elif config_name == "development":
         app_config = DevConfig()
     else:
-        raise KeyError(f'Unknown configuration: {config_name}')
+        raise KeyError(f"Unknown configuration: {config_name}")
     return app_config
 
 
-class _Config():  # pylint: disable=too-few-public-methods
+class _Config:  # pylint: disable=too-few-public-methods
     """Base class configuration that should set reasonable defaults.
 
     Used as the base for all the other configurations.
@@ -63,78 +63,78 @@ class _Config():  # pylint: disable=too-few-public-methods
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    AUTH_LD_SDK_KEY = os.getenv('AUTH_LD_SDK_KEY', None)
+    AUTH_LD_SDK_KEY = os.getenv("AUTH_LD_SDK_KEY", None)
 
     # POSTGRESQL
-    DB_USER = os.getenv('DATABASE_USERNAME', '')
-    DB_PASSWORD = os.getenv('DATABASE_PASSWORD', '')
-    DB_NAME = os.getenv('DATABASE_NAME', '')
-    DB_HOST = os.getenv('DATABASE_HOST', '')
-    DB_PORT = os.getenv('DATABASE_PORT', '5432')
-    if DB_UNIX_SOCKET := os.getenv('DATABASE_UNIX_SOCKET', None):
-        SQLALCHEMY_DATABASE_URI = f'postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@/{DB_NAME}?host={DB_UNIX_SOCKET}'  # noqa: E231, E501
+    DB_USER = os.getenv("DATABASE_USERNAME", "")
+    DB_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
+    DB_NAME = os.getenv("DATABASE_NAME", "")
+    DB_HOST = os.getenv("DATABASE_HOST", "")
+    DB_PORT = os.getenv("DATABASE_PORT", "5432")
+    if DB_UNIX_SOCKET := os.getenv("DATABASE_UNIX_SOCKET", None):
+        SQLALCHEMY_DATABASE_URI = (
+            f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@/{DB_NAME}?host={DB_UNIX_SOCKET}"  # noqa: E231, E501
+        )
     else:
-        SQLALCHEMY_DATABASE_URI = f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{int(DB_PORT)}/{DB_NAME}'  # noqa: E231, E501
+        SQLALCHEMY_DATABASE_URI = (
+            f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{int(DB_PORT)}/{DB_NAME}"  # noqa: E231, E501
+        )
 
     # Keycloak & Jwt
-    JWT_OIDC_ISSUER = os.getenv('JWT_OIDC_ISSUER')
+    JWT_OIDC_ISSUER = os.getenv("JWT_OIDC_ISSUER")
 
     # Keycloak auth config baseurl
-    KEYCLOAK_BASE_URL = os.getenv('KEYCLOAK_BASE_URL')
-    KEYCLOAK_REALMNAME = os.getenv('KEYCLOAK_REALMNAME')
-    KEYCLOAK_ADMIN_USERNAME = os.getenv('SBC_AUTH_ADMIN_CLIENT_ID')
-    KEYCLOAK_ADMIN_SECRET = os.getenv('SBC_AUTH_ADMIN_CLIENT_SECRET')
+    KEYCLOAK_BASE_URL = os.getenv("KEYCLOAK_BASE_URL")
+    KEYCLOAK_REALMNAME = os.getenv("KEYCLOAK_REALMNAME")
+    KEYCLOAK_ADMIN_USERNAME = os.getenv("SBC_AUTH_ADMIN_CLIENT_ID")
+    KEYCLOAK_ADMIN_SECRET = os.getenv("SBC_AUTH_ADMIN_CLIENT_SECRET")
 
     # Service account details
-    KEYCLOAK_SERVICE_ACCOUNT_ID = os.getenv('SBC_AUTH_ADMIN_CLIENT_ID')
-    KEYCLOAK_SERVICE_ACCOUNT_SECRET = os.getenv('SBC_AUTH_ADMIN_CLIENT_SECRET')
+    KEYCLOAK_SERVICE_ACCOUNT_ID = os.getenv("SBC_AUTH_ADMIN_CLIENT_ID")
+    KEYCLOAK_SERVICE_ACCOUNT_SECRET = os.getenv("SBC_AUTH_ADMIN_CLIENT_SECRET")
 
     # API endpoints
-    PAY_API_URL = os.getenv('PAY_API_URL')
-    NOTIFY_API_URL = os.getenv('NOTIFY_API_URL')
+    PAY_API_URL = os.getenv("PAY_API_URL")
+    NOTIFY_API_URL = os.getenv("NOTIFY_API_URL")
     REPORT_API_BASE_URL = f'{os.getenv("REPORT_API_URL")}/reports'
 
     # PUB/SUB - SUB: account-mailer-dev
     # If blank in PUB/SUB, this should match the https endpoint the subscription is pushing to.
-    AUTH_AUDIENCE_SUB = os.getenv('ACCOUNT_MAILER_AUDIENCE_SUB')
-    VERIFY_PUBSUB_EMAILS = os.getenv('AUTHPAY_SERVICE_ACCOUNT', 'email1,email2').split(',')
+    AUTH_AUDIENCE_SUB = os.getenv("ACCOUNT_MAILER_AUDIENCE_SUB")
+    VERIFY_PUBSUB_EMAILS = os.getenv("AUTHPAY_SERVICE_ACCOUNT", "email1,email2").split(",")
 
     # Minio configuration values
-    MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
-    MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
-    MINIO_ACCESS_SECRET = os.getenv('MINIO_ACCESS_SECRET')
-    MINIO_BUCKET = os.getenv('MINIO_BUCKET', 'account-mailer')
-    MINIO_SECURE = os.getenv('MINIO_SECURE', 'true').lower() == 'true'
+    MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+    MINIO_ACCESS_SECRET = os.getenv("MINIO_ACCESS_SECRET")
+    MINIO_BUCKET = os.getenv("MINIO_BUCKET", "account-mailer")
+    MINIO_SECURE = os.getenv("MINIO_SECURE", "true").lower() == "true"
 
     REFUND_REQUEST = {
-        'creditcard': {
-            'recipients': os.getenv('REFUND_REQUEST_RECIPIENTS', '')
-        },
-        'bcol': {
-            'recipients': os.getenv('BCOL_REFUND_REQUEST_RECIPIENTS', '')
-        }
+        "creditcard": {"recipients": os.getenv("REFUND_REQUEST_RECIPIENTS", "")},
+        "bcol": {"recipients": os.getenv("BCOL_REFUND_REQUEST_RECIPIENTS", "")},
     }
 
     # application setting
-    PDF_TEMPLATE_PATH = os.getenv('PDF_TEMPLATE_PATH', 'src/account_mailer/pdf_templates')
-    TEMPLATE_PATH = os.getenv('TEMPLATE_PATH', 'src/account_mailer/email_templates')
-    HTTP_ORIGIN = os.getenv('HTTP_ORIGIN', 'localhost')
-    WEB_APP_URL = os.getenv('WEB_APP_URL', 'localhost')
-    WEB_APP_STATEMENT_PATH_URL = os.getenv('WEB_APP_STATEMENT_PATH_URL', 'account/orgId/settings/statements')
-    DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'localhost')
+    PDF_TEMPLATE_PATH = os.getenv("PDF_TEMPLATE_PATH", "src/account_mailer/pdf_templates")
+    TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", "src/account_mailer/email_templates")
+    HTTP_ORIGIN = os.getenv("HTTP_ORIGIN", "localhost")
+    WEB_APP_URL = os.getenv("WEB_APP_URL", "localhost")
+    WEB_APP_STATEMENT_PATH_URL = os.getenv("WEB_APP_STATEMENT_PATH_URL", "account/orgId/settings/statements")
+    DASHBOARD_URL = os.getenv("DASHBOARD_URL", "localhost")
     # PAD TOS PDF file name.
-    PAD_TOS_FILE = os.getenv('PAD_TOS_FILE', 'BCROS-Business-Pre-Authorized-Debit-Agreement.pdf')
+    PAD_TOS_FILE = os.getenv("PAD_TOS_FILE", "BCROS-Business-Pre-Authorized-Debit-Agreement.pdf")
     # MHR QUALIFIED SUPPLIER PDF File name
-    MHR_QS_AGREEMENT_FILE = os.getenv('MHR_QS_AGREEMENT_FILE', 'MHR_QualifiedSuppliersAgreement.pdf')
+    MHR_QS_AGREEMENT_FILE = os.getenv("MHR_QS_AGREEMENT_FILE", "MHR_QualifiedSuppliersAgreement.pdf")
 
     # If any value is present in this flag, starts up a keycloak docker
-    USE_TEST_KEYCLOAK_DOCKER = os.getenv('USE_TEST_KEYCLOAK_DOCKER', None)
-    USE_DOCKER_MOCK = os.getenv('USE_DOCKER_MOCK', None)
+    USE_TEST_KEYCLOAK_DOCKER = os.getenv("USE_TEST_KEYCLOAK_DOCKER", None)
+    USE_DOCKER_MOCK = os.getenv("USE_DOCKER_MOCK", None)
 
     # BC online admin email
-    BCOL_ADMIN_EMAIL = os.getenv('BCOL_ADMIN_EMAIL', 'test@test.com')
+    BCOL_ADMIN_EMAIL = os.getenv("BCOL_ADMIN_EMAIL", "test@test.com")
 
-    LEGISLATIVE_TIMEZONE = os.getenv('LEGISLATIVE_TIMEZONE', 'America/Vancouver')
+    LEGISLATIVE_TIMEZONE = os.getenv("LEGISLATIVE_TIMEZONE", "America/Vancouver")
 
 
 class DevConfig(_Config):  # pylint: disable=too-few-public-methods
@@ -153,27 +153,27 @@ class TestConfig(_Config):  # pylint: disable=too-few-public-methods
     DEBUG = True
     TESTING = True
     # POSTGRESQL
-    DB_USER = os.getenv('DATABASE_TEST_USERNAME', '')
-    DB_PASSWORD = os.getenv('DATABASE_TEST_PASSWORD', '')
-    DB_NAME = os.getenv('DATABASE_TEST_NAME', '')
-    DB_HOST = os.getenv('DATABASE_TEST_HOST', '')
-    DB_PORT = os.getenv('DATABASE_TEST_PORT', '5432')
+    DB_USER = os.getenv("DATABASE_TEST_USERNAME", "")
+    DB_PASSWORD = os.getenv("DATABASE_TEST_PASSWORD", "")
+    DB_NAME = os.getenv("DATABASE_TEST_NAME", "")
+    DB_HOST = os.getenv("DATABASE_TEST_HOST", "")
+    DB_PORT = os.getenv("DATABASE_TEST_PORT", "5432")
     SQLALCHEMY_DATABASE_URI = os.getenv(
-        'DATABASE_TEST_URL',
-        default=f'postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}',  # noqa: E231
+        "DATABASE_TEST_URL",
+        default=f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",  # noqa: E231
     )
 
-    JWT_OIDC_ISSUER = os.getenv('JWT_OIDC_TEST_ISSUER')
+    JWT_OIDC_ISSUER = os.getenv("JWT_OIDC_TEST_ISSUER")
     # Service account details
-    KEYCLOAK_SERVICE_ACCOUNT_ID = os.getenv('KEYCLOAK_TEST_ADMIN_CLIENTID')
-    KEYCLOAK_SERVICE_ACCOUNT_SECRET = os.getenv('KEYCLOAK_TEST_ADMIN_SECRET')
-    BCOL_ADMIN_EMAIL = 'test@test.com'
+    KEYCLOAK_SERVICE_ACCOUNT_ID = os.getenv("KEYCLOAK_TEST_ADMIN_CLIENTID")
+    KEYCLOAK_SERVICE_ACCOUNT_SECRET = os.getenv("KEYCLOAK_TEST_ADMIN_SECRET")
+    BCOL_ADMIN_EMAIL = "test@test.com"
 
     # Minio variables
-    MINIO_ENDPOINT = 'localhost:9000'
-    MINIO_ACCESS_KEY = 'minio'
-    MINIO_ACCESS_SECRET = 'minio123'
-    MINIO_BUCKET_NAME = 'cgi-ejv'
+    MINIO_ENDPOINT = "localhost:9000"
+    MINIO_ACCESS_KEY = "minio"
+    MINIO_ACCESS_SECRET = "minio123"
+    MINIO_BUCKET_NAME = "cgi-ejv"
     MINIO_SECURE = False
 
 

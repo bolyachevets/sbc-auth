@@ -36,17 +36,17 @@ def register_endpoints(app: Flask):
     app.url_map.strict_slashes = False
 
     app.register_blueprint(
-        url_prefix='/',
+        url_prefix="/",
         blueprint=worker_endpoint,
     )
     app.register_blueprint(ops_bp)
 
 
-def create_app(run_mode=os.getenv('DEPLOYMENT_ENV', 'production')) -> Flask:
+def create_app(run_mode=os.getenv("DEPLOYMENT_ENV", "production")) -> Flask:
     """Return a configured Flask App using the Factory method."""
     app = Flask(__name__)
     app.config.from_object(config.get_named_config(run_mode))
-    app.config['ENV'] = run_mode
+    app.config["ENV"] = run_mode
 
     db.init_app(app)
     flags.init_app(app)

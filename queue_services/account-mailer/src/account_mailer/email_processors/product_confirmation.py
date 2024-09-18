@@ -32,13 +32,8 @@ def process_attachment(email_dict: dict, attachment_type: str) -> dict:
         return email_dict
 
     pdf_attachment = _get_pdf(attachment_name)
-    email_dict['content']['attachments'] = [
-        {
-            'fileName': attachment_name,
-            'fileBytes': pdf_attachment.decode('utf-8'),
-            'fileUrl': '',
-            'attachOrder': '1'
-        }
+    email_dict["content"]["attachments"] = [
+        {"fileName": attachment_name, "fileBytes": pdf_attachment.decode("utf-8"), "fileUrl": "", "attachOrder": "1"}
     ]
 
     return email_dict
@@ -46,15 +41,14 @@ def process_attachment(email_dict: dict, attachment_type: str) -> dict:
 
 def _get_attachment_name(attachment_type: str) -> str:
     if attachment_type == AttachmentTypes.QUALIFIED_SUPPLIER.value:
-        return current_app.config['MHR_QS_AGREEMENT_FILE']
+        return current_app.config["MHR_QS_AGREEMENT_FILE"]
 
     return None
 
 
 def _get_pdf(file_name: str):
     read_pdf = None
-    mino_object = minio_service.MinioService.get_minio_file(current_app.config['MINIO_BUCKET'],
-                                                            file_name)
+    mino_object = minio_service.MinioService.get_minio_file(current_app.config["MINIO_BUCKET"], file_name)
     if mino_object:
         read_pdf = base64.b64encode(mino_object.data)
 
