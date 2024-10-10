@@ -16,6 +16,8 @@ from typing import Optional
 
 from flask import Flask
 
+from ..meta import bp as meta_bp
+from ..ops import bp as ops_bp
 from .account import bp as accounts_bp
 from .activity_log import bp as activity_log_bp
 from .affiliation_invitation import bp as affiliation_invitation_bp
@@ -26,9 +28,8 @@ from .documents import bp as documents_bp
 from .documents_affidavit import bp as documents_affidavit_bp
 from .entity import bp as entity_bp
 from .invitation import bp as invitation_bp
-from .meta import bp as meta_bp
+from .keycloak import bp as keycloak_bp
 from .notifications import bp as notifications_bp
-from ..ops import bp as ops_bp
 from .org import bp as org_bp
 from .org_api_keys import bp as org_api_keys_bp
 from .org_authorizations import bp as org_authorizations_bp
@@ -50,7 +51,7 @@ class V1Endpoint:  # pylint: disable=too-few-public-methods,
     def init_app(self, app):
         """Register and initialize the Endpoint setup."""
         if not app:
-            raise Exception('Cannot initialize without a Flask App.')  # pylint: disable=broad-exception-raised
+            raise Exception("Cannot initialize without a Flask App.")  # pylint: disable=broad-exception-raised
 
         self.app = app
         self.app.register_blueprint(accounts_bp)
@@ -63,6 +64,7 @@ class V1Endpoint:  # pylint: disable=too-few-public-methods,
         self.app.register_blueprint(documents_affidavit_bp)
         self.app.register_blueprint(entity_bp)
         self.app.register_blueprint(invitation_bp)
+        self.app.register_blueprint(keycloak_bp)
         self.app.register_blueprint(meta_bp)
         self.app.register_blueprint(notifications_bp)
         self.app.register_blueprint(ops_bp)
