@@ -142,6 +142,8 @@ python_files = [
 norecursedirs = [
    ".git", ".tox", "venv*", "requirements*", "build",
 ]
+log_cli = true
+log_cli_level = "1"
 filterwarnings = [
    "ignore::UserWarning"
 ]
@@ -149,7 +151,6 @@ markers = [
    "slow",
    "serial",
 ]
-
 [tool.coverage.run]
 branch = true
 source = [
