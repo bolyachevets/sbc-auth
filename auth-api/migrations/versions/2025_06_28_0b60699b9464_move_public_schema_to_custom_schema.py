@@ -13,6 +13,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from alembic import op
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy.sql import text
 
 # revision identifiers, used by Alembic.
@@ -210,12 +212,20 @@ def get_target_schema():
     return schema
 
 def get_migration_files():
-    """Get sorted migration files."""
-    migrations_dir = Path(__file__).parent.parent / 'versions'
-    return sorted(
-        f for f in os.listdir(migrations_dir)
-        if f.endswith('.py') and f != '__init__.py'
-    )
+    """Get sorted migration files using native alembic utilities."""
+    # Get the alembic.ini path (assuming it's in the parent directory)
+    alembic_ini_path = Path(__file__).parent.parent / 'alembic.ini'
+
+    # Create alembic config and script directory
+    alembic_cfg = Config(str(alembic_ini_path))
+    script = ScriptDirectory.from_config(alembic_cfg)
+
+    # Get all revisions in order from oldest to newest
+    revisions = list(script.walk_revisions())
+
+    # Return full file paths in chronological order
+    return [Path(rev.module.__file__) for rev in reversed(revisions)]
+
 
 def load_migration_module(file_path):
     """Load a migration module from file."""
