@@ -9,6 +9,8 @@ import importlib.util
 import logging
 import os
 import re
+import subprocess
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -23,8 +25,29 @@ down_revision = '5a5a3a82f05c'
 branch_labels = None
 depends_on = None
 
+# Configure structured logging for migration
+try:
+    # Add the src directory to the path so we can import auth_api modules
+    current_dir = Path(__file__).parent.parent.parent
+    src_dir = current_dir / 'src'
+    if str(src_dir) not in sys.path:
+        sys.path.insert(0, str(src_dir))
 
-logger = logging.getLogger(__name__)
+    # Import and setup structured logging
+    from auth_api.config import _Config
+    from auth_api.utils.logging import setup_logging
+
+    # Setup structured logging using the same config as the main app
+    logging_conf_path = os.path.join(_Config.PROJECT_ROOT, "logging.conf")
+    setup_logging(logging_conf_path)
+
+    # Get a logger that will use the structured format
+    logger = logging.getLogger('auth_api')
+except ImportError as e:
+    # Fallback to basic logging if structured logging setup fails
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Could not setup structured logging, using basic logging: {e}")
 
 def get_table_dependencies(conn, schema='public'):
     """Build a dependency graph of tables based on foreign keys."""
@@ -212,19 +235,25 @@ def get_target_schema():
     return schema
 
 def get_migration_files():
-    """Get sorted migration files using native alembic utilities."""
-    # Get the alembic.ini path (assuming it's in the parent directory)
-    alembic_ini_path = Path(__file__).parent.parent / 'alembic.ini'
+    """Get sorted migration files using dependency-based ordering."""
+    # Get migration order from DAG
+    ordered_revisions, revisions_info = get_migration_dag()
 
-    # Create alembic config and script directory
-    alembic_cfg = Config(str(alembic_ini_path))
-    script = ScriptDirectory.from_config(alembic_cfg)
+    # Create file paths in dependency order
+    migration_files = []
+    for rev_id in ordered_revisions:
+        info = revisions_info.get(rev_id, {})
+        if 'filename' in info:
+            migration_files.append(info['filename'])
 
-    # Get all revisions in order from oldest to newest
-    revisions = list(script.walk_revisions())
+    migration_files.reverse()
 
-    # Return full file paths in chronological order
-    return [Path(rev.module.__file__) for rev in reversed(revisions)]
+    # Log the ordered migration files
+    logger.info(f"Found {len(migration_files)} migration files in order:")
+    for i, filename in enumerate(migration_files):
+        logger.info(f"  {i+1}: {filename}")
+
+    return migration_files
 
 
 def load_migration_module(file_path):
@@ -234,62 +263,267 @@ def load_migration_module(file_path):
     spec.loader.exec_module(module)
     return module
 
+def get_migration_dag():
+    """Get migration files in correct dependency order with revision information."""
+    # First try to read from mig_order.txt if it exists
+    migrations_dir = Path(__file__).parent.parent
+    mig_order_file = migrations_dir / 'mig_order.txt'
+
+    if mig_order_file.exists():
+        logger.info(f"Using migration order from {mig_order_file}")
+        # Read the file and extract revision IDs in order
+        ordered_revisions = []
+        revisions = {}
+
+        with open(mig_order_file, 'r') as f:
+            content = f.read()
+
+        # Extract revision IDs from the file
+        rev_pattern = re.compile(r'Rev(?:ision ID)?: ([a-f0-9]+)')
+        for match in rev_pattern.finditer(content):
+            rev_id = match.group(1)
+            if rev_id and rev_id not in ordered_revisions:
+                ordered_revisions.append(rev_id)
+
+        # Now get the filenames for each revision
+        versions_dir = migrations_dir / 'versions'
+        migration_files = [f for f in os.listdir(versions_dir)
+                          if f.endswith('.py') and f != '__init__.py']
+
+        for filename in migration_files:
+            file_path = versions_dir / filename
+            try:
+                module = load_migration_module(file_path)
+                revision = getattr(module, 'revision', None)
+
+                if revision:
+                    revisions[revision] = {
+                        'filename': filename,
+                        'path': file_path,
+                        'module': module
+                    }
+            except Exception as e:
+                logger.error(f"Error loading {filename}: {str(e)}")
+
+        # Log what we found from mig_order.txt
+        logger.info(f"Found {len(ordered_revisions)} revisions in mig_order.txt")
+        return ordered_revisions, revisions
+
+    # If mig_order.txt doesn't exist or we couldn't parse it, use the original method
+    logger.warning("mig_order.txt not found or couldn't be parsed, falling back to dependency order")
+
+    # Get the alembic.ini path
+    alembic_ini_path = migrations_dir / 'alembic.ini'
+
+    # Create alembic config and script directory
+    alembic_cfg = Config(str(alembic_ini_path))
+    script = ScriptDirectory.from_config(alembic_cfg)
+
+    # Build dependency graph
+    migration_dependencies = {}
+    revisions = {}
+
+    # This is a more direct approach for finding all migration scripts
+    versions_dir = migrations_dir / 'versions'
+    migration_files = [f for f in os.listdir(versions_dir)
+                      if f.endswith('.py') and f != '__init__.py']
+
+    # Extract revision information from each file
+    for filename in sorted(migration_files):
+        file_path = versions_dir / filename
+        try:
+            module = load_migration_module(file_path)
+            revision = getattr(module, 'revision', None)
+            down_revision = getattr(module, 'down_revision', None)
+
+            if revision:
+                migration_dependencies[revision] = down_revision
+                revisions[revision] = {
+                    'filename': filename,
+                    'path': file_path,
+                    'module': module
+                }
+        except Exception as e:
+            logger.error(f"Error loading {filename}: {str(e)}")
+
+    # Topological sort to get correct order
+    ordered_revisions = []
+    visited = set()
+
+    def visit(revision):
+        if revision in visited or revision is None:
+            return
+        visited.add(revision)
+
+        # Visit dependencies first
+        down_rev = migration_dependencies.get(revision)
+        if down_rev:
+            visit(down_rev)
+
+        ordered_revisions.append(revision)
+
+    # Find the base revision (the one with no down_revision)
+    base_revisions = [rev for rev, down_rev in migration_dependencies.items()
+                     if down_rev is None]
+
+    # Start from the base and build up (instead of starting from the leaves)
+    for base_rev in sorted(base_revisions):
+        visit(base_rev)
+
+    # Log the ordered migrations
+    logger.info(f"Found {len(ordered_revisions)} migrations in dependency order")
+    return ordered_revisions, revisions
+
+
 def upgrade():
     target_schema = get_target_schema()
     if target_schema == 'public':
         logger.info("Target schema is public, skipping migration")
         return
-    
+
     conn = op.get_bind()
-    
-    # Save original search path
-    original_search_path = conn.execute(text('SHOW search_path')).scalar()
-    logger.info(f"Original search path: {original_search_path}")
-    
+
     try:
-        # Create schema if it doesn't exist
-        if not conn.execute(
-            text(f"SELECT 1 FROM information_schema.schemata WHERE schema_name = '{target_schema}'")
-        ).scalar():
-            conn.execute(text(f"CREATE SCHEMA {target_schema}"))
+        # 1. Create the target schema
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {target_schema}"))
 
-        # Set search path for this connection only
-        conn.execute(text(f"SET LOCAL search_path TO {target_schema}"))
-        logger.info(f"Set connection search_path to {target_schema}")
+        # 2. Get database connection parameters
+        from sqlalchemy.engine.url import make_url
+        url = make_url(conn.engine.url)
+        logger.info("URL is %s", url)
 
-        # Run all previous migrations in the new schema
-        migrations_dir = Path(__file__).parent.parent / 'versions'
-        for file in get_migration_files():
-            if file == os.path.basename(__file__):
-                continue
+        # 3. Use a temporary file for more reliable transfer
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w+', suffix='.sql', delete=False) as tmp_file:
+            # 4. Build and execute pg_dump command
+            dump_cmd = [
+                '/usr/local/opt/libpq/bin/pg_dump',
+                f"--host={url.host}" if url.host else "",
+                f"--port={url.port}" if url.port else "",
+                f"--username={url.username}" if url.username else "",
+                f"--dbname={url.database}",
+                "--schema-only",
+                "--schema=public",
+                "--no-comments",
+                # "--no-owner",
+                # "--no-privileges",
+                f"--file={tmp_file.name}"
+            ]
 
-            file_path = migrations_dir / file
+            # Remove empty arguments
+            dump_cmd = [arg for arg in dump_cmd if arg]
+
+            # Execute pg_dump
+            result = subprocess.run(
+                dump_cmd,
+                check=True,
+                env={'PGPASSWORD': url.password} if url.password else None,
+                stderr=subprocess.PIPE
+            )
+
+            logger.debug(f"pg_dump stdout: {result.stdout}")
+            logger.debug(f"pg_dump stderr: {result.stderr}")
+
+            # After pg_dump completes:
+            file_size = os.path.getsize(tmp_file.name)
+            logger.info(f"pg_dump file size: {file_size} bytes")
+
+            if file_size == 0:
+                logger.warning("pg_dump failed: Output file is empty!")
+                return
+            
+            import shutil
+            local_copy_path = f"./pg_dump_output_{target_schema}.sql"
+            shutil.copy2(tmp_file.name, local_copy_path)
+            logger.info(f"Saved pg_dump output to: {local_copy_path}")
+
+        # 5. Modify the SQL file to use target schema (outside the with block but before deletion)
+        try:
+            with open(tmp_file.name, 'r') as f:
+                content = f.read()
+
+                # Show first few lines for debugging
+                first_few_lines = content.split('\n')[:15]
+                logger.info("Dump file starts with:\n%s", '\n'.join(first_few_lines))
+
+                # Replace public schema references with target schema
+                modified_content = content.replace('public.', f'{target_schema}.')
+                modified_content = modified_content.replace('CREATE SCHEMA public;', f'\n')
+                modified_content = modified_content.replace('ALTER SCHEMA public OWNER TO pg_database_owner;', f'\n')
+
+                # modified_content = modified_content.replace('CREATE SCHEMA public;', f'CREATE SCHEMA IF NOT EXISTS {target_schema};')
+                logger.debug(modified_content[:500])  # Log first 500 chars for debugging
+                with open(tmp_file.name, 'w') as f:
+                    f.write(modified_content)
+                
+                import shutil
+                local_copy_path = f"./pg_dump_output_modified_{target_schema}.sql"
+                shutil.copy2(tmp_file.name, local_copy_path)
+                logger.info(f"Saved modified pg_dump output to: {local_copy_path}")
+
+                # 6. Load the modified SQL with simplified psql command
+                # TODO add to Dockerfile and figure out path
+                load_cmd = [
+                    '/usr/local/opt/libpq/bin/psql',
+                    f"--host={url.host}" if url.host else "",
+                    f"--port={url.port}" if url.port else "",
+                    f"--username={url.username}" if url.username else "",
+                    f"--dbname={url.database}",
+                    "--quiet",
+                    "--single-transaction",
+                    f"--file={tmp_file.name}"
+                ]
+
+                # Remove empty arguments
+                load_cmd = [arg for arg in load_cmd if arg]
+
+                logger.info(f"Executing psql command: {' '.join(load_cmd)}")
+
+                # Execute psql
+                result = subprocess.run(
+                    load_cmd,
+                    env={'PGPASSWORD': url.password} if url.password else None,
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode != 0:
+                    logger.error(f"psql stderr: {result.stderr}")
+                    raise Exception(f"Schema load failed: {result.stderr}")
+
+                logger.info("Schema structure loaded successfully")
+
+        finally:
+            # Clean up the temporary file
             try:
-                module = load_migration_module(file_path)
-                logger.info(f"Applying {file} in schema {target_schema}")
-                module.upgrade()
-            except Exception as e:
-                logger.error(f"Failed to apply {file}: {str(e)}")
-                raise
+                os.unlink(tmp_file.name)
+            except FileNotFoundError:
+                pass
 
-        # COPY DATA FROM PUBLIC SCHEMA
+        # 7. Copy data
+        # TODO should pg_dump be also used for data?
+
+        tables_in_target = conn.execute(text(f"""
+            SELECT table_name FROM information_schema.tables 
+            WHERE table_schema = '{target_schema}'
+        """)).fetchall()
+        logger.info(f"Tables found in {target_schema} after psql: {[t[0] for t in tables_in_target]}")
+        
+
         copy_data_with_dependencies(conn, target_schema)
 
-        logger.info("Migration completed successfully (without ALTER DATABASE)")
+        logger.info("Migration completed successfully")
 
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed: {e.stderr.decode('utf-8') if e.stderr else str(e)}")
+        raise Exception("Schema copy failed") from e
     except Exception as e:
         logger.error(f"Migration failed: {str(e)}")
         raise
-    finally:
-        # Always restore original search path
-        try:
-            conn.execute(text(f"SET search_path TO {original_search_path}"))
-        except Exception as e:
-            logger.error(f"Failed to restore search path: {str(e)}")
 
 def downgrade():
     target_schema = get_target_schema()
-    
+
     # Skip if target schema is public
     if target_schema == 'public':
         logger.info("Target schema is public, skipping downgrade")
